@@ -14,6 +14,9 @@ describe("Directive", function () {
             "Hello {{name}}!": "Hallo {{name}}!",
             "One boat": ["Een boot", "{{count}} boten"]
         });
+        catalog.setStrings("af", {
+            "This link: <a class=\"extra-class\" ng-href=\"{{url}}\">{{url}}</a> will have the 'ng-binding' class attached before the translate directive can capture it.": "Die skakel: <a ng-href=\"{{url}}\">{{url}}</a> sal die 'ng-binding' klass aangevoeg hê voor die translate directive dit kan vasvat."
+        });
     }));
 
     it("Should return string unchanged when no translation is available", function () {
@@ -188,5 +191,13 @@ describe("Directive", function () {
         var el = $compile("<div><div ng-if=\"flag\"><div translate>Hello</div></div></div>")($rootScope);
         $rootScope.$digest();
         assert.equal(el.text(), "");
+    });
+
+    it("Does not have a ng-binding class", function () {
+        $rootScope.url = "http://google.com";
+        catalog.currentLanguage = "af";
+        var el = $compile("<div><p translate>This link: <a class=\"extra-class\" ng-href=\"{{url}}\">{{url}}</a> will have the 'ng-binding' class attached before the translate directive can capture it.</p></div>")($rootScope);
+        $rootScope.$digest();
+        assert.equal(el.text(), "Die skakel: http://google.com sal die 'ng-binding' klass aangevoeg hê voor die translate directive dit kan vasvat.");
     });
 });

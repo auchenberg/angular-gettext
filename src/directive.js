@@ -1,85 +1,68 @@
-angular.module('gettext')
-    // First directive substitutes the correct translation
-    .directive('translate', function (gettextCatalog, $parse, $animate) {
-        // Trim polyfill for old browsers (instead of jQuery)
-        // Based on AngularJS-v1.2.2 (angular.js#620)
-        var trim = (function () {
-            if (!String.prototype.trim) {
-                return function (value) {
-                    return (typeof value === 'string') ? value.replace(/^\s*/, '').replace(/\s*$/, '') : value;
-                };
-            }
+angular.module('gettext').directive('translate', function (gettextCatalog, $parse, $animate, $compile) {
+    // Trim polyfill for old browsers (instead of jQuery)
+    // Based on AngularJS-v1.2.2 (angular.js#620)
+    var trim = (function () {
+        if (!String.prototype.trim) {
             return function (value) {
-                return (typeof value === 'string') ? value.trim() : value;
+                return (typeof value === 'string') ? value.replace(/^\s*/, '').replace(/\s*$/, '') : value;
             };
-        })();
-
-        function assert(condition, missing, found) {
-            if (!condition) {
-                throw new Error('You should add a ' + missing + ' attribute whenever you add a ' + found + ' attribute.');
-            }
         }
+        return function (value) {
+            return (typeof value === 'string') ? value.trim() : value;
+        };
+    })();
 
-        return {
-            restrict: 'A',
-            terminal: true,
-            priority: 350,
-            transclude: 'element',
-            link: function (scope, element, attrs, ctrl, transclude) {
-                // Validate attributes
-                assert(!attrs.translatePlural || attrs.translateN, 'translate-n', 'translate-plural');
-                assert(!attrs.translateN || attrs.translatePlural, 'translate-plural', 'translate-n');
+    function assert(condition, missing, found) {
+        if (!condition) {
+            throw new Error('You should add a ' + missing + ' attribute whenever you add a ' + found + ' attribute.');
+        }
+    }
 
-                var currentEl = null;
-                var countFn = $parse(attrs.translateN);
-                var pluralScope = null;
+    return {
+        restrict: 'A',
+        terminal: true,
+        compile: function compile(element, attrs) {
+            // Validate attributes
+            assert(!attrs.translatePlural || attrs.translateN, 'translate-n', 'translate-plural');
+            assert(!attrs.translateN || attrs.translatePlural, 'translate-plural', 'translate-n');
 
-                function update() {
-                    var prevEl = currentEl;
+            var msgid = trim(element.html());
+            var translatePlural = attrs.translatePlural;
 
-                    currentEl = transclude(scope, function (clone) {
-                        var msgid = trim(clone.html());
+            return {
+                post: function (scope, element, attrs) {
+                    var countFn = $parse(attrs.translateN);
+                    var pluralScope = null;
 
+                    function update() {
                         // Fetch correct translated string.
                         var translated;
-                        if (attrs.translatePlural) {
+                        if (translatePlural) {
                             scope = pluralScope || (pluralScope = scope.$new());
                             scope.$count = countFn(scope);
-                            translated = gettextCatalog.getPlural(scope.$count, msgid, attrs.translatePlural);
+                            translated = gettextCatalog.getPlural(scope.$count, msgid, translatePlural);
                         } else {
                             translated = gettextCatalog.getString(msgid);
                         }
 
-                        clone.prop('__msgstr', translated);
-                        $animate.enter(clone, null, element);
+                        // Swap in the translation
+                        var newWrapper = angular.element('<span>' + translated + '</span>');
+                        $compile(newWrapper.contents())(scope);
+                        var oldContents = element.contents();
+                        var newContents = newWrapper.contents();
+                        $animate.enter(newContents, element);
+                        $animate.leave(oldContents);
+                    }
 
-                        if (prevEl !== null) {
-                            $animate.leave(prevEl, function () {
-                                prevEl = null;
-                            });
-                        }
-                    });
+                    if (attrs.translateN) {
+                        scope.$watch(attrs.translateN, update);
+                    }
+
+                    scope.$on('gettextLanguageChanged', update);
+
+                    update();
                 }
-
-                if (attrs.translateN) {
-                    scope.$watch(attrs.translateN, update);
-                }
-
-                scope.$on('gettextLanguageChanged', update);
-
-                update();
-            }
-        };
-    })
-    // Second directive takes care of compiling the substituted markup.
-    .directive('translate', function ($compile) {
-        return {
-            restrict: 'A',
-            priority: -350,
-            link: function (scope, element) {
-                var msgstr = element.prop('__msgstr');
-                element.html(msgstr);
-                $compile(element.contents())(scope);
-            }
-        };
-    });
+            };
+        }
+    };
+});

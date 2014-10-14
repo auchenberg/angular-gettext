@@ -9,6 +9,10 @@ angular.module('gettext').factory('gettextCatalog', function (gettextPlurals, $h
         }
     };
 
+    function broadcastUpdated() {
+        $rootScope.$broadcast('gettextLanguageChanged');
+    }
+
     catalog = {
         debug: false,
         strings: {},
@@ -21,7 +25,7 @@ angular.module('gettext').factory('gettextCatalog', function (gettextPlurals, $h
 
         setCurrentLanguage: function (lang) {
             this.currentLanguage = lang;
-            $rootScope.$broadcast('gettextLanguageChanged');
+            broadcastUpdated();
         },
 
         setStrings: function (language, strings) {
@@ -37,6 +41,8 @@ angular.module('gettext').factory('gettextCatalog', function (gettextPlurals, $h
                     this.strings[language][key] = val;
                 }
             }
+
+            broadcastUpdated();
         },
 
         getStringForm: function (string, n) {
